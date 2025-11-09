@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Question Timer</title>
+  <link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js');
+  }
+</script>
+
+  <style>
+    body {
+      font-family: "Poppins", sans-serif;
+      background: #f5f7fb;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      color: #222;
+      margin-bottom: 10px;
+    }
+
+    .container {
+      background: white;
+      padding: 25px 40px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      text-align: center;
+      max-width: 450px;
+      width: 90%;
+    }
+
+    .setup {
+      margin-bottom: 20px;
+    }
+
+    .setup input {
+      padding: 8px;
+      width: 70px;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      margin-left: 10px;
+    }
+
+    .timer {
+      font-size: 42px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      margin: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    #skipBtn {
+      background: #ff9500;
+    }
+    #skipBtn:hover {
+      background: #d67f00;
+    }
+
+    #restartBtn {
+      background: #28a745;
+    }
+    #restartBtn:hover {
+      background: #1d7c31;
+    }
+
+    #results {
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .finished {
+      color: green;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Question Timer</h1>
+    
+    <div class="setup">
+      <label>Number of Questions: </label>
+      <input type="number" id="numQuestionsInput" value="10" min="1" max="100">
+      <button id="startBtn">Start Test</button>
+    </div>
+
+    <div id="testSection" style="display:none;">
+      <div>Press <b>Spacebar</b> to Start/Stop Timer</div>
+      <div>Current Question: <span id="questionNumber">1</span> / <span id="totalQuestions">10</span></div>
+      <div class="timer" id="timer">0.00 s</div>
+      <button id="skipBtn">Skip Question</button>
+      <button id="endTestBtn">End Test</button>
+      <button id="restartBtn">Restart</button>
+
+      <div id="results"></div>
+    </div>
+  </div>
+
+  <script>
+    let totalQuestions = 10;
+    let questionTimes = [];
+    let currentQuestion = 1;
+    let timerRunning = false;
+    let startTime;
+    let timerInterval;
+
+    const timerDisplay = document.getElementById("timer");
+    const questionNumber = document.getElementById("questionNumber");
+    const totalQSpan = document.getElementById("totalQuestions");
+    const resultsDiv = document.getElementById("results");
+    const endTestBtn = document.getElementById("endTestBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const skipBtn = document.getElementById("skipBtn");
+    const startBtn = document.getElementById("startBtn");
+    const testSection = document.getElementById("testSection");
+    const numQuestionsInput = document.getElementById("numQuestionsInput");
+
+    function formatTime(ms) {
+      return (ms / 1000).toFixed(2) + " s";
+    }
+
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      timerDisplay.textContent = formatTime(elapsed);
+    }
+
+    function resetAll() {
+      questionTimes = [];
+      currentQuestion = 1;
+      timerRunning = false;
+      clearInterval(timerInterval);
+      timerDisplay.textContent = "0.00 s";
+      questionNumber.textContent = currentQuestion;
+      resultsDiv.innerHTML = "";
+    }
+
+    startBtn.addEventListener("click", () => {
+      totalQuestions = parseInt(numQuestionsInput.value) || 10;
+      if (totalQuestions < 1) return alert("Enter at least 1 question!");
+      totalQSpan.textContent = totalQuestions;
+      resetAll();
+      testSection.style.display = "block";
+      numQuestionsInput.disabled = true;
+      startBtn.disabled = true;
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && testSection.style.display !== "none") {
+        e.preventDefault();
+
+        if (!timerRunning) {
+          // Start timing
+          startTime = Date.now();
+          timerInterval = setInterval(updateTimer, 10);
+          timerRunning = true;
+        } else {
+          // Stop timing
+          clearInterval(timerInterval);
+          const timeTaken = Date.now() - startTime;
+          questionTimes.push(timeTaken);
+          timerRunning = false;
+
+          if (currentQuestion < totalQuestions) {
+            currentQuestion++;
+            questionNumber.textContent = currentQuestion;
+            timerDisplay.textContent = "0.00 s";
+          } else {
+            timerDisplay.textContent = "All questions done!";
+            resultsDiv.innerHTML = `<p class="finished">Press "End Test" to view results.</p>`;
+          }
+        }
+      }
+    });
+
+    skipBtn.addEventListener("click", () => {
+      if (currentQuestion < totalQuestions) {
+        questionTimes.push(null); // null for skipped
+        currentQuestion++;
+        questionNumber.textContent = currentQuestion;
+        timerDisplay.textContent = "0.00 s";
+      } else {
+        timerDisplay.textContent = "All questions done!";
+      }
+    });
+
+    endTestBtn.addEventListener("click", () => {
+      if (questionTimes.length === 0) {
+        alert("No questions attempted yet!");
+        return;
+      }
+
+      const validTimes = questionTimes.filter(t => t !== null);
+      const totalTime = validTimes.reduce((a, b) => a + b, 0);
+      const avgTime = validTimes.length > 0 ? totalTime / validTimes.length : 0;
+
+      let resultHTML = "<h3>Results</h3><ul>";
+      questionTimes.forEach((t, i) => {
+        if (t === null) {
+          resultHTML += `<li>Question ${i + 1}: <i>Skipped</i></li>`;
+        } else {
+          resultHTML += `<li>Question ${i + 1}: ${formatTime(t)}</li>`;
+        }
+      });
+      resultHTML += `</ul><p><b>Total Time:</b> ${formatTime(totalTime)}</p>`;
+      resultHTML += `<p><b>Average Time per Question:</b> ${formatTime(avgTime)}</p>`;
+      resultsDiv.innerHTML = resultHTML;
+    });
+
+    restartBtn.addEventListener("click", () => {
+      numQuestionsInput.disabled = false;
+      startBtn.disabled = false;
+      testSection.style.display = "none";
+      resetAll();
+    });
+  </script>
+</body>
+</html>
